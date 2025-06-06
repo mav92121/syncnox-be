@@ -4,18 +4,22 @@ import enum
 from datetime import datetime
 
 class JobType(str, enum.Enum):
-    DELIVERY = "delivery"
-    PICKUP = "pickup"
-    TASK = "task"
+    delivery = "delivery"
+    pickup = "pickup"
+    task = "task"
 
 class PriorityLevel(str, enum.Enum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
+    low = "low"
+    medium = "medium"
+    high = "high"
 
 class RecurrenceType(str, enum.Enum):
-    ONE_TIME = "one_time"
-    RECURRING = "recurring"
+    one_time = "one_time"
+    recurring = "recurring"
+
+class PaymentStatus(str, enum.Enum):
+    paid = "paid"
+    unpaid = "unpaid"
 
 class Job(Base):
     __tablename__ = "jobs"
@@ -49,4 +53,4 @@ class Job(Base):
     # Configuration
     recurrence_type = Column(Enum(RecurrenceType), nullable=False)
     documents = Column(JSON, comment="Array of file paths/urls")
-    payment_status = Column(Boolean, default=False)
+    payment_status = Column(Enum(PaymentStatus), nullable=False, default=PaymentStatus.unpaid)

@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ENVIRONMENT: str
     DEBUG: bool
+    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:8000"]  # Add your frontend URLs
 
     class Config:
         env_file = ".env"

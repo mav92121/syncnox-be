@@ -17,3 +17,6 @@ def delete_job(db: Session, job_id: int) -> bool:
     db.delete(job)
     db.commit()
     return True
+
+def get_jobs(db: Session):
+    return db.query(Job).all()

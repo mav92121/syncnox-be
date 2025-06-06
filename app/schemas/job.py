@@ -4,18 +4,22 @@ from typing import Optional, List
 from enum import Enum
 
 class JobType(str, Enum):
-    DELIVERY = "delivery"
-    PICKUP = "pickup"
-    TASK = "task"
+    delivery = "delivery"
+    pickup = "pickup"
+    task = "task"
 
 class PriorityLevel(str, Enum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
+    low = "low"
+    medium = "medium"
+    high = "high"
 
 class RecurrenceType(str, Enum):
-    ONE_TIME = "one_time"
-    RECURRING = "recurring"
+    one_time = "one_time"
+    recurring = "recurring"
+
+class PaymentStatus(str, Enum):
+    paid = "paid"
+    unpaid = "unpaid"
 
 class JobBase(BaseModel):
     scheduled_date: datetime
@@ -34,7 +38,7 @@ class JobBase(BaseModel):
     additional_notes: Optional[str] = None
     recurrence_type: RecurrenceType
     documents: Optional[List[str]] = None  # Changed from document_urls to match model
-    payment_status: bool = False
+    payment_status: PaymentStatus = PaymentStatus.unpaid
 
 class JobCreate(JobBase):
     pass

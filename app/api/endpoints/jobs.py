@@ -4,9 +4,13 @@ from app.db.session import get_db
 from app.schemas.job import JobCreate, Job
 from app.services import job_service
 
-router = APIRouter()
+router = APIRouter(prefix="/jobs", tags=["jobs"])
 
-@router.post("/", response_model=Job)
+@router.get("", response_model=list[Job])
+def get_jobs(db: Session = Depends(get_db)):
+    return job_service.get_jobs(db=db)
+
+@router.post("", response_model=Job)
 def create_job(job: JobCreate, db: Session = Depends(get_db)):
     return job_service.create_job(db=db, job=job)
 

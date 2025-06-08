@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.db.base import Base
 from app.db.session import engine
 from app.core.config import settings
-from app.api.endpoints import jobs
+from app.api.v1.endpoints import jobs
 
 Base.metadata.create_all(bind=engine)
 
@@ -21,4 +21,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(jobs.router)  # Remove prefix here
+app.include_router(jobs.router, prefix="/api/v1")

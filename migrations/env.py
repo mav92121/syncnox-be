@@ -13,9 +13,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Use DATABASE_URL from environment if set
 from app.core.config import settings
 
+# Override sqlalchemy.url with environment variable
 config = context.config
-
-# Override sqlalchemy.url with environment variable if set
 if settings.DATABASE_URL:
     config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 

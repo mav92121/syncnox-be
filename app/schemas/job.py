@@ -22,23 +22,26 @@ class PaymentStatus(str, Enum):
     unpaid = "unpaid"
 
 class JobBase(BaseModel):
+    # Mandatory fields
     scheduled_date: datetime
     job_type: JobType
     delivery_address: str
-    priority_level: PriorityLevel
-    first_name: str
-    last_name: str
-    email: EmailStr
+    priority_level: PriorityLevel = PriorityLevel.medium
+    recurrence_type: RecurrenceType = RecurrenceType.one_time
+    payment_status: PaymentStatus = PaymentStatus.paid  # Default to paid
+    
+    # Non-mandatory fields
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
     business_name: Optional[str] = None
-    start_time: datetime
-    end_time: datetime
-    duration_minutes: int
-    phone_number: str
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    duration_minutes: Optional[int] = None
+    phone_number: Optional[str] = None
     customer_preferences: Optional[str] = None
     additional_notes: Optional[str] = None
-    recurrence_type: RecurrenceType
-    documents: Optional[List[str]] = None  # Changed from document_urls to match model
-    payment_status: PaymentStatus = PaymentStatus.unpaid
+    documents: Optional[List[str]] = None
 
 class JobCreate(JobBase):
     pass

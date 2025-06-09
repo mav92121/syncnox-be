@@ -12,6 +12,7 @@ def get_jobs(db: Session = Depends(get_db)):
 
 @router.post("", response_model=Job)
 def create_job(job: JobCreate, db: Session = Depends(get_db)):
+    print("Create job api hit")
     return job_service.create_job(db=db, job=job)
 
 @router.delete("/{job_id}")

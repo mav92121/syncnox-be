@@ -10,14 +10,17 @@ from alembic import context
 # Add the project root directory to Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Use DATABASE_URL from environment if set
 from app.core.config import settings
-from app.db.base_class import Base
-from app.models.job import Job  # Import models here
 
 config = context.config
 
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# Override sqlalchemy.url with environment variable if set
+if settings.DATABASE_URL:
+    config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
+from app.db.base_class import Base
+from app.models.job import Job  # Import models here
 
 target_metadata = Base.metadata
 

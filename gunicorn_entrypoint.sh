@@ -9,10 +9,12 @@ if psql $DATABASE_URL -c "SELECT 1 FROM information_schema.tables WHERE table_na
   alembic upgrade head
 else
   echo "Initializing alembic migrations..."
-  # Get the latest migration revision
-  LATEST_REVISION=$(alembic history | grep "^[a-f0-9]\+" | head -1 | cut -d ":" -f 1 | tr -d " ")
-  echo "Setting current version to: $LATEST_REVISION"
-  alembic stamp $LATEST_REVISION
+  
+  # Directly initialize with head revision
+  echo "Stamping database with head revision"
+  alembic stamp head
+  
+  echo "Alembic initialized with head revision"
 fi
 
 echo "Database is up to date!"

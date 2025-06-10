@@ -3,8 +3,6 @@ set -e
 
 echo "Running migration fix..."
 
-alembic downgrade -1
-echo "Downgraded successfully!"
 alembic upgrade head
 
 echo "Fix complete — launching app..."

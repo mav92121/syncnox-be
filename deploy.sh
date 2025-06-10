@@ -10,7 +10,7 @@ echo "Running database migrations..."
 if ! psql $DATABASE_URL -c "SELECT 1 FROM information_schema.tables WHERE table_name = 'alembic_version'" | grep -q "(1 row)"; then
   echo "Initializing alembic migrations..."
   # Get the latest migration revision
-  LATEST_REVISION=$(alembic history | grep "^[a-f0-9]\+" | head -1 | cut -d ":" -f 1 | tr -d " ")
+  LATEST_REVISION=$(alembic heads | awk '{print $1}')
   echo "Setting current version to: $LATEST_REVISION"
   alembic stamp $LATEST_REVISION
 fi

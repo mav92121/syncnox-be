@@ -3,10 +3,6 @@ set -e
 
 echo "Starting application deployment..."
 
-echo "Downgrading to previous revision..."
-alembic downgrade -1
-echo "Downgraded successfully!"
-
 # Check if alembic_version table exists
 if psql $DATABASE_URL -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'alembic_version');" | grep -q "t"; then
   echo "Alembic is initialized, running migrations..."

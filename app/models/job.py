@@ -1,4 +1,5 @@
-from sqlalchemy import Column, String, DateTime, Integer, Enum, Boolean, JSON
+from sqlalchemy import Column, String, DateTime, Integer, Enum, Boolean, JSON, ForeignKey
+from sqlalchemy.orm import relationship
 from app.db.base_class import Base
 import enum
 from datetime import datetime
@@ -27,6 +28,12 @@ class Job(Base):
     id = Column(Integer, primary_key=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    driver_id = Column(Integer, ForeignKey('drivers.id'), nullable=True)
+    vehicle_id = Column(Integer, ForeignKey('vehicles.id'), nullable=True)
+    driver = relationship("Driver", back_populates="jobs")
+    vehicle = relationship("Vehicle", back_populates="jobs")
     
     # Job Details
     scheduled_date = Column(DateTime, nullable=False)

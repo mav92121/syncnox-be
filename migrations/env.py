@@ -19,7 +19,10 @@ if settings.DATABASE_URL:
     config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 from app.db.base_class import Base
-from app.models.job import Job  # Import models here
+# Import all models for Alembic to detect
+from app.models.job import Job
+from app.models.driver import Driver
+from app.models.vehicle import Vehicle
 
 target_metadata = Base.metadata
 

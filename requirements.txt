@@ -13,3 +13,4 @@ psycopg2-binary==2.9.9
 phonenumbers==8.13.24
 pydantic-settings==2.1.0
 gunicorn==21.2.0
+httpx==0.25.0

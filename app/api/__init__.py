@@ -1,1 +1,3 @@
-# Empty file to make directory a Python package
+from . import deps
+
+__all__ = ['deps']

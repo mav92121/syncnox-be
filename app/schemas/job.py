@@ -29,6 +29,9 @@ class JobBase(BaseModel):
     priority_level: PriorityLevel = PriorityLevel.medium
     recurrence_type: RecurrenceType = RecurrenceType.one_time
     payment_status: PaymentStatus = PaymentStatus.paid  # Default to paid
+    address_id: Optional[str] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
     
     # Non-mandatory fields
     first_name: Optional[str] = None

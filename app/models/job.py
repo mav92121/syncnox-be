@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Integer, Enum, Boolean, JSON, ForeignKey
+from sqlalchemy import Column, String, DateTime, Integer, Enum, Float, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.base_class import Base
 import enum
@@ -39,6 +39,9 @@ class Job(Base):
     scheduled_date = Column(DateTime, nullable=False)
     job_type = Column(Enum(JobType), nullable=False)
     delivery_address = Column(String, nullable=False)
+    address_id = Column(String, nullable=True)
+    lat = Column(Float, nullable=True, index=True, comment="Latitude in decimal degrees")
+    lon = Column(Float, nullable=True, index=True, comment="Longitude in decimal degrees")
     priority_level = Column(Enum(PriorityLevel), nullable=False, default=PriorityLevel.medium)
     
     # Customer Information

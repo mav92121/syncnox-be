@@ -2,7 +2,6 @@ fastapi==0.104.1
 uvicorn==0.24.0
 sqlalchemy==2.0.23
 pydantic==2.5.1
-pydantic[email]==2.5.1
 python-multipart==0.0.6
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
@@ -15,3 +14,11 @@ pydantic-settings==2.1.0
 gunicorn==21.2.0
 httpx==0.25.0
 ortools==9.14.6206
+
+# Testing
+pytest==7.4.3
+
+# Development
+aiohttp==3.9.1
+redis==5.0.1
+setuptools==69.2.0

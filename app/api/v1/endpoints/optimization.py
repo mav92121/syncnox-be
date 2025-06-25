@@ -230,6 +230,10 @@ class Stop(BaseModel):
     duration_from_prev: float
     service_time: int
 
+class RoutePath(BaseModel):
+    overview_polyline: str = ""
+    waypoints: List[Dict[str, float]] = []
+
 class Route(BaseModel):
     vehicle_id: str
     stops: List[Stop]
@@ -237,6 +241,7 @@ class Route(BaseModel):
     total_duration: float
     start_time: str
     end_time: str
+    path: RoutePath = Field(default_factory=RoutePath)
 
 class OptimizationResponse(BaseModel):
     status: str
@@ -340,9 +345,8 @@ async def optimize_routes(
             "total_duration": result.get("total_duration", 0),
             "routes": [],
             "metadata": {
-                "num_jobs": len(jobs),
-                "num_vehicles": len(vehicles),
-                "optimization_timestamp": result.get("optimization_timestamp")
+                **result.get("metadata", {}),
+                "optimization_timestamp": result.get("optimization_timestamp", datetime.utcnow().isoformat() + 'Z')
             }
         }
         
@@ -354,17 +358,18 @@ async def optimize_routes(
                 "total_distance": route.get("total_distance", 0),
                 "total_duration": route.get("total_duration", 0),
                 "start_time": _format_timestamp(route.get("start_time")),
-                "end_time": _format_timestamp(route.get("end_time"))
+                "end_time": _format_timestamp(route.get("end_time")),
+                "path": route.get("path", {
+                    "overview_polyline": "",
+                    "waypoints": []
+                })
             }
             
             # Add stops to the route
             for stop in route.get("stops", []):
                 route_data["stops"].append({
                     "job_id": stop["job_id"],
-                    "location": {
-                        "lat": stop["location"][0],
-                        "lng": stop["location"][1]
-                    },
+                    "location": stop["location"],  # Use the location object directly
                     "arrival_time": _format_timestamp(stop["arrival_time"]),
                     "departure_time": _format_timestamp(stop["departure_time"]),
                     "distance_from_prev": stop["distance_from_prev"],

@@ -831,6 +831,44 @@ class RouteOptimizer:
         
         return data
     
+    def _encode_polyline(self, coordinates: List[Tuple[float, float]]) -> str:
+        """
+        Encode a list of (lat, lng) coordinates to a polyline string.
+        Implements Google's polyline encoding algorithm.
+        """
+        def _encode_number(num: int) -> str:
+            num = num << 1 if num >= 0 else ~(num << 1)
+            chunks = []
+            while num >= 0x20:
+                chunks.append((0x20 | (num & 0x1f)) + 63)
+                num >>= 5
+            chunks.append(num + 63)
+            return ''.join(chr(c) for c in chunks)
+        
+        if not coordinates:
+            return ""
+            
+        result = []
+        prev_lat = 0
+        prev_lng = 0
+        
+        for lat, lng in coordinates:
+            # Scale and round to 5 decimal places (about 1.1m precision)
+            lat = int(round(lat * 1e5, 0))
+            lng = int(round(lng * 1e5, 0))
+            
+            # Encode the differences
+            d_lat = lat - prev_lat
+            d_lng = lng - prev_lng
+            
+            result.append(_encode_number(d_lat))
+            result.append(_encode_number(d_lng))
+            
+            prev_lat = lat
+            prev_lng = lng
+        
+        return ''.join(result)
+
     def _format_solution(
         self,
         data: Dict[str, Any],
@@ -838,10 +876,11 @@ class RouteOptimizer:
         routing: RoutingModel,
         solution: Any,  # pywrapcp.Assignment
         vehicles: List[Vehicle],
-        jobs: List[Job]
+        jobs: List[Job],
+        **kwargs
     ) -> Dict[str, Any]:
         """
-        Format the OR-Tools solution into a more usable format.
+        Format the OR-Tools solution into a more usable format with enhanced route information.
         
         Args:
             data: Data model used for the optimization
@@ -850,29 +889,95 @@ class RouteOptimizer:
             solution: OR-Tools solution
             vehicles: List of Vehicle objects
             jobs: List of Job objects
-            
+            **kwargs: Additional options
+                - timezone: Timezone string (e.g., 'Asia/Kolkata')
+                - include_polylines: Whether to include encoded polylines
+                
         Returns:
-            Formatted solution
+            Formatted solution with enhanced route information
         """
+        from datetime import datetime, timezone, timedelta
+        import pytz
+        
+        # Get options with defaults
+        timezone_str = kwargs.get('timezone', 'UTC')
+        include_polylines = kwargs.get('include_polylines', True)
+        
+        # Initialize timezone
+        try:
+            tz = pytz.timezone(timezone_str)
+        except pytz.exceptions.UnknownTimeZoneError:
+            tz = pytz.UTC
+        
+        current_time = datetime.now(tz)
+        
         time_dimension = routing.GetDimensionOrDie('Time')
         routes = []
         total_distance = 0
         total_duration = 0
+        all_locations = []
+        
+        # Collect all locations for bounding box calculation
+        for vehicle in vehicles:
+            all_locations.append(vehicle.start_location)
+        for job in jobs:
+            all_locations.append(job.location)
+        
+        # Calculate bounding box with padding
+        padding = 0.01  # ~1km padding
+        if all_locations:
+            # Filter out None locations and ensure they have at least 2 elements
+            valid_locations = [loc for loc in all_locations if loc and len(loc) >= 2]
+            
+            if valid_locations:
+                lats = [loc[0] for loc in valid_locations]
+                lngs = [loc[1] for loc in valid_locations]
+                
+                # Add padding to bounds
+                bounds = {
+                    'north': min(max(lats) + padding, 90.0),  # Cap at poles
+                    'south': max(min(lats) - padding, -90.0),
+                    'east': min(max(lngs) + padding, 180.0),  # Cap at date line
+                    'west': max(min(lngs) - padding, -180.0)
+                }
+                
+                # Ensure valid longitude span
+                if bounds['east'] - bounds['west'] < 0.0001:  # If too small, add padding
+                    center_lng = (bounds['east'] + bounds['west']) / 2
+                    bounds['east'] = min(center_lng + padding, 180.0)
+                    bounds['west'] = max(center_lng - padding, -180.0)
+                    
+                # Ensure valid latitude span
+                if bounds['north'] - bounds['south'] < 0.0001:  # If too small, add padding
+                    center_lat = (bounds['north'] + bounds['south']) / 2
+                    bounds['north'] = min(center_lat + padding, 90.0)
+                    bounds['south'] = max(center_lat - padding, -90.0)
+            else:
+                bounds = {}
+        else:
+            bounds = {}
         
         for vehicle_id in range(data['num_vehicles']):
             index = routing.Start(vehicle_id)
+            
+            # Initialize route with default values
             route = {
                 'vehicle_id': vehicles[vehicle_id].id,
                 'stops': [],
-                'total_distance': 0,
-                'total_duration': 0,
+                'total_distance': 0.0,
+                'total_duration': 0.0,
                 'start_time': None,
-                'end_time': None
+                'end_time': None,
+                'path': {
+                    'overview_polyline': '',
+                    'waypoints': []
+                }
             }
             
             prev_index = index
             route_distance = 0
             route_duration = 0
+            route_locations = [vehicles[vehicle_id].start_location]
             
             while not routing.IsEnd(index):
                 node_index = manager.IndexToNode(index)
@@ -891,43 +996,90 @@ class RouteOptimizer:
                     
                     # Only process if it's a valid job index
                     if 0 <= job_idx < len(jobs):
-                        # Ensure indices are within matrix bounds
-                        from_node = manager.IndexToNode(prev_index)
-                        to_node = manager.IndexToNode(index)
+                        job = jobs[job_idx]
                         
-                        # Ensure we don't go out of bounds
-                        max_node = len(data['distance_matrix']) - 1
-                        from_node = min(from_node, max_node)
-                        to_node = min(to_node, max_node)
+                        # Calculate times with timezone
+                        arrival_time = (current_time + timedelta(seconds=route_duration)).isoformat()
+                        departure_time = (current_time + timedelta(seconds=route_duration + job.duration)).isoformat()
+                        
+                        # Get location info
+                        lat, lng = job.location
                         
                         stop = {
-                            'job_id': jobs[job_idx].id,
-                            'location': jobs[job_idx].location,
-                            'distance_from_prev': data['distance_matrix'][from_node][to_node],
-                            'duration_from_prev': data['duration_matrix'][from_node][to_node],
-                            'service_time': jobs[job_idx].duration,
-                            'arrival_time': route_duration,
-                            'departure_time': route_duration + jobs[job_idx].duration
+                            'job_id': job.id,
+                            'location': {
+                                'lat': lat,
+                                'lng': lng,
+                                'address': None  # Can be populated with reverse geocoding
+                            },
+                            'distance_from_prev': data['distance_matrix'][node_index][next_node_index],
+                            'duration_from_prev': data['duration_matrix'][node_index][next_node_index],
+                            'service_time': job.duration,
+                            'arrival_time': arrival_time,
+                            'departure_time': departure_time
                         }
                         route['stops'].append(stop)
+                        route_locations.append(job.location)
                 
                 prev_index = index
                 index = next_index
             
+            # Add polyline and waypoints for the route
+            if len(route_locations) > 1:
+                if include_polylines:
+                    try:
+                        route['path']['overview_polyline'] = self._encode_polyline(route_locations)
+                    except Exception as e:
+                        logger.warning(f"Failed to encode polyline: {str(e)}")
+                        route['path']['overview_polyline'] = ""
+                
+                # Always include waypoints for the frontend
+                route['path']['waypoints'] = [
+                    {'lat': lat, 'lng': lng} 
+                    for lat, lng in route_locations
+                    if lat is not None and lng is not None
+                ]
+            else:
+                # If no valid waypoints, ensure empty arrays
+                route['path']['overview_polyline'] = ""
+                route['path']['waypoints'] = []
+            
+            # Update route summary
             route['total_distance'] = route_distance
             route['total_duration'] = route_duration
-            routes.append(route)
             
+            # Set start and end times if there are stops
+            if route['stops']:
+                route['start_time'] = route['stops'][0]['arrival_time']
+                route['end_time'] = route['stops'][-1]['departure_time']
+            
+            routes.append(route)
             total_distance += route_distance
             total_duration += route_duration
         
+        # Prepare metadata with current timestamp and bounds
+        current_time = datetime.now(timezone.utc)
+        metadata = {
+            'num_jobs': len(jobs),
+            'num_vehicles': len(vehicles),
+            'optimization_timestamp': current_time.isoformat() + 'Z',
+            'timezone': timezone_str,
+            'version': '1.0.0',
+            'bounds': {
+                'north': bounds.get('north', 0) if bounds else 0,
+                'south': bounds.get('south', 0) if bounds else 0,
+                'east': bounds.get('east', 0) if bounds else 0,
+                'west': bounds.get('west', 0) if bounds else 0
+            }
+        }
+        
         return {
             'status': 'success',
-            'routes': routes,
+            'optimization_type': data['optimization_type'],
             'total_distance': total_distance,
             'total_duration': total_duration,
-            'optimization_type': data['optimization_type'],
-            'optimization_timestamp': datetime.utcnow().isoformat()
+            'routes': routes,
+            'metadata': metadata
         }
     
     async def optimize_routes(
@@ -947,7 +1099,10 @@ class RouteOptimizer:
             vehicles: Optional list of Vehicle objects (default: single vehicle at origin)
             profile: Vehicle profile (car, bike, foot, etc.)
             **kwargs: Additional optimization parameters
-            
+                - timezone: Timezone string (e.g., 'Asia/Kolkata')
+                - include_polylines: Whether to include encoded polylines (default: True)
+                - start_time: Optional start time for the route (default: current time)
+                
         Returns:
             Dict containing the optimization solution with routes and metrics
             
@@ -1050,9 +1205,24 @@ class RouteOptimizer:
             if not solution:
                 raise RouteOptimizationError("No solution found for the given constraints")
                 
-            # Format and return the solution
-            return self._format_solution(data, manager, routing, solution, vehicles, jobs)
+            # Get timezone and polyline options from kwargs
+            timezone = kwargs.get('timezone', 'UTC')
+            include_polylines = kwargs.get('include_polylines', True)
+                
+            # Format the solution with enhanced information
+            formatted_solution = self._format_solution(
+                data=data,
+                manager=manager,
+                routing=routing,
+                solution=solution,
+                vehicles=vehicles,
+                jobs=jobs,
+                timezone=timezone,
+                include_polylines=include_polylines
+            )
             
+            return formatted_solution
+        
         except Exception as e:
             logger.error(f"Error in route optimization: {str(e)}", exc_info=True)
             raise RouteOptimizationError(f"Route optimization failed: {str(e)}")
